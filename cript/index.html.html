@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Crypto Monitor - Tempo Real BTC & ETH</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#8257e5">
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #0d1117;
+      color: #c9d1d9;
+    }
+    .chart-container {
+      position: relative;
+      height: 260px;
+      width: 100%;
+    }
+    .glow-green {
+      box-shadow: 0 0 15px rgba(34, 197, 94, 0.15);
+    }
+    .glow-red {
+      box-shadow: 0 0 15px rgba(239, 68, 68, 0.15);
+    }
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #161b22;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #30363d;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-4 sm:p-6">
+
+  <!-- Header -->
+  <header class="max-w-7xl w-full mx-auto flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 pb-4 border-b border-gray-800">
+    <div class="flex items-center gap-3">
+      <div class="bg-indigo-600/20 p-2.5 rounded-xl border border-indigo-500/30 text-indigo-400">
+        <i data-lucide="activity" class="w-6 h-6"></i>
+      </div>
+      <div>
+        <h1 class="text-xl font-bold text-white flex items-center gap-2">
+          Crypto Monitor <span class="text-xs bg-emerald-500/10 text-emerald-400 px-2.0 py-0.5 rounded-full border border-emerald-500/20 flex items-center gap-1 font-normal"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> AO VIVO</span>
+        </h1>
+        <p class="text-xs text-gray-400">Acompanhamento universal direto da Binance API</p>
+      </div>
+    </div>
+
+    <!-- Controles Globais -->
+    <div class="flex items-center gap-3 bg-gray-900/80 p-1.5 rounded-xl border border-gray-800">
+      <button id="btn-sound" onclick="toggleSound()" class="flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg bg-gray-800 text-gray-300 hover:text-white hover:bg-gray-700 transition">
+        <i data-lucide="volume-2" class="w-4 h-4 text-emerald-400" id="icon-sound"></i>
+        <span id="txt-sound">Som: Ativado</span>
+      </button>
+
+      <button id="btn-notify" onclick="requestNotificationPermission()" class="flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white transition">
+        <i data-lucide="bell" class="w-4 h-4"></i>
+        <span>Ativar Alertas</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content Grid -->
+  <main class="max-w-7xl w-full mx-auto grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+    
+    <!-- CARD BITCOIN (BTC) -->
+    <div id="card-btc" class="bg-gray-900/60 border border-gray-800 rounded-2xl p-5 flex flex-col justify-between transition-all duration-300 hover:border-gray-700">
+      <div>
+        <!-- Cabeçalho do Card -->
+        <div class="flex justify-between items-start mb-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 font-bold text-lg">
+              ₿
+            </div>
+            <div>
+              <h2 class="text-lg font-bold text-white leading-none">Bitcoin</h2>
+              <span class="text-xs text-gray-400 font-mono">BTC / BRL</span>
+            </div>
+          </div>
+          <div class="text-right">
+            <div id="btc-price" class="text-2xl font-bold text-white font-mono">R$ --.--</div>
+            <div id="btc-badge" class="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md bg-gray-800 text-gray-400 mt-1">
+              <span>--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Estatísticas Rápida -->
+        <div class="grid grid-cols-3 gap-2 bg-gray-950/50 p-2.5 rounded-xl border border-gray-800/80 mb-4 text-xs font-mono">
+          <div>
+            <span class="text-gray-500 block text-[10px]">MÁX 24H</span>
+            <span id="btc-high" class="text-gray-300 font-medium">R$ --</span>
+          </div>
+          <div>
+            <span class="text-gray-500 block text-[10px]">MÍN 24H</span>
+            <span id="btc-low" class="text-gray-300 font-medium">R$ --</span>
+          </div>
+          <div>
+            <span class="text-gray-500 block text-[10px]">ÚLTIMA VARIAÇÃO</span>
+            <span id="btc-diff" class="text-gray-300 font-medium">R$ 0,00</span>
+          </div>
+        </div>
+
+        <!-- Container do Gráfico -->
+        <div class="chart-container">
+          <canvas id="btcChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Rodapé Card -->
+      <div class="mt-4 pt-3 border-t border-gray-800/60 flex justify-between items-center text-[11px] text-gray-500 font-mono">
+        <span>Atualização em tempo real</span>
+        <span id="btc-time">--:--:--</span>
+      </div>
+    </div>
+
+    <!-- CARD ETHEREUM (ETH) -->
+    <div id="card-eth" class="bg-gray-900/60 border border-gray-800 rounded-2xl p-5 flex flex-col justify-between transition-all duration-300 hover:border-gray-700">
+      <div>
+        <!-- Cabeçalho do Card -->
+        <div class="flex justify-between items-start mb-4">
+          <div class="flex items-center gap-3">
+            <div class="w-10 h-10 rounded-full bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 font-bold text-lg">
+              Ξ
+            </div>
+            <div>
+              <h2 class="text-lg font-bold text-white leading-none">Ethereum</h2>
+              <span class="text-xs text-gray-400 font-mono">ETH / BRL</span>
+            </div>
+          </div>
+          <div class="text-right">
+            <div id="eth-price" class="text-2xl font-bold text-white font-mono">R$ --.--</div>
+            <div id="eth-badge" class="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md bg-gray-800 text-gray-400 mt-1">
+              <span>--</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Estatísticas Rápida -->
+        <div class="grid grid-cols-3 gap-2 bg-gray-950/50 p-2.5 rounded-xl border border-gray-800/80 mb-4 text-xs font-mono">
+          <div>
+            <span class="text-gray-500 block text-[10px]">MÁX 24H</span>
+            <span id="eth-high" class="text-gray-300 font-medium">R$ --</span>
+          </div>
+          <div>
+            <span class="text-gray-500 block text-[10px]">MÍN 24H</span>
+            <span id="eth-low" class="text-gray-300 font-medium">R$ --</span>
+          </div>
+          <div>
+            <span class="text-gray-500 block text-[10px]">ÚLTIMA VARIAÇÃO</span>
+            <span id="eth-diff" class="text-gray-300 font-medium">R$ 0,00</span>
+          </div>
+        </div>
+
+        <!-- Container do Gráfico -->
+        <div class="chart-container">
+          <canvas id="ethChart"></canvas>
+        </div>
+      </div>
+
+      <!-- Rodapé Card -->
+      <div class="mt-4 pt-3 border-t border-gray-800/60 flex justify-between items-center text-[11px] text-gray-500 font-mono">
+        <span>Atualização em tempo real</span>
+        <span id="eth-time">--:--:--</span>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Seção Interativa: Simulador de Investimento -->
+  <section class="max-w-7xl w-full mx-auto bg-gray-900/40 border border-gray-800 rounded-2xl p-5 mb-6">
+    <div class="flex items-center gap-2 mb-4">
+      <i data-lucide="calculator" class="w-5 h-5 text-indigo-400"></i>
+      <h3 class="text-md font-bold text-white">Simulador de Fração & Rendimento em Tempo Real</h3>
+    </div>
+    
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-400 mb-1">Valor a Investir (R$)</label>
+        <div class="relative">
+          <span class="absolute left-3 top-2.5 text-gray-500 text-sm font-mono">R$</span>
+          <input type="number" id="sim-input" value="1.00" step="0.5" min="0.1" class="w-full bg-gray-950 border border-gray-800 rounded-xl pl-10 pr-3 py-2 text-white font-mono focus:outline-none focus:border-indigo-500 text-sm">
+        </div>
+      </div>
+
+      <div class="bg-gray-950/80 p-3 rounded-xl border border-gray-800/60 flex flex-col justify-center">
+        <span class="text-[11px] text-gray-500 font-medium">FRAÇÃO COMPRADA EM BTC</span>
+        <span id="sim-btc-frac" class="text-sm font-bold text-amber-400 font-mono mt-0.5">0.00000000 BTC</span>
+        <span id="sim-btc-sat" class="text-[10px] text-gray-400 font-mono">~ 0 Satoshis</span>
+      </div>
+
+      <div class="bg-gray-950/80 p-3 rounded-xl border border-gray-800/60 flex flex-col justify-center">
+        <span class="text-[11px] text-gray-500 font-medium">FRAÇÃO COMPRADA EM ETH</span>
+        <span id="sim-eth-frac" class="text-sm font-bold text-blue-400 font-mono mt-0.5">0.00000000 ETH</span>
+        <span id="sim-eth-gwei" class="text-[10px] text-gray-400 font-mono">~ 0 Wei</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="max-w-7xl w-full mx-auto text-center text-xs text-gray-600 border-t border-gray-900 pt-4">
+    Dados de mercado fornecidos em tempo real via Binance REST/WebSocket API. Esta aplicação tem caráter estritamente didático e educativo.
+  </footer>
+
+  <!-- Script Lógica da Aplicação -->
+  <script>
+    // Configurações Globais
+    let soundEnabled = true;
+    let btcPriceHistory = [];
+    let ethPriceHistory = [];
+    const MAX_DATA_POINTS = 20;
+
+    let btcLastPrice = null;
+    let ethLastPrice = null;
+
+    // Inicialização do Lucide Icons
+    lucide.createIcons();
+
+    // -------------------------------------------------------------
+    // Configuração dos Gráficos com Chart.js
+    // -------------------------------------------------------------
+    const chartOptions = {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: { duration: 400 },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          backgroundColor: '#161b22',
+          titleColor: '#8b949e',
+          bodyColor: '#f0f6fc',
+          borderColor: '#30363d',
+          borderWidth: 1,
+          displayColors: false,
+          callbacks: {
+            label: function(context) {
+              return ` Preço: R$ ${context.parsed.y.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { display: false, drawBorder: false },
+          ticks: { color: '#484f58', font: { size: 10, family: 'Inter' } }
+        },
+        y: {
+          grid: { color: 'rgba(48, 54, 61, 0.4)', drawBorder: false },
+          ticks: { color: '#8b949e', font: { size: 10, family: 'Inter' } }
+        }
+      }
+    };
+
+    // Gráfico Bitcoin
+    const ctxBTC = document.getElementById('btcChart').getContext('2d');
+    const btcChart = new Chart(ctxBTC, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'BTC/BRL',
+          data: [],
+          borderColor: '#f59e0b',
+          backgroundColor: 'rgba(245, 158, 11, 0.08)',
+          fill: true,
+          tension: 0.35,
+          borderWidth: 2,
+          pointRadius: 2,
+          pointHoverRadius: 5
+        }]
+      },
+      options: chartOptions
+    });
+
+    // Gráfico Ethereum
+    const ctxETH = document.getElementById('ethChart').getContext('2d');
+    const ethChart = new Chart(ctxETH, {
+      type: 'line',
+      data: {
+        labels: [],
+        datasets: [{
+          label: 'ETH/BRL',
+          data: [],
+          borderColor: '#3b82f6',
+          backgroundColor: 'rgba(59, 130, 246, 0.08)',
+          fill: true,
+          tension: 0.35,
+          borderWidth: 2,
+          pointRadius: 2,
+          pointHoverRadius: 5
+        }]
+      },
+      options: chartOptions
+    });
+
+    // -------------------------------------------------------------
+    // Sistema de Áudio Sintético (Web Audio API)
+    // -------------------------------------------------------------
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+    function playBeep(type) {
+      if (!soundEnabled) return;
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      if (type === 'up') {
+        osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+        osc.frequency.exponentialRampToValueAtTime(880, audioCtx.currentTime + 0.15); // A5
+      } else {
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime); // A4
+        osc.frequency.exponentialRampToValueAtTime(220, audioCtx.currentTime + 0.15); // A3
+      }
+
+      gain.gain.setValueAtTime(0.05, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+
+      osc.start();
+      osc.stop(audioCtx.currentTime + 0.15);
+    }
+
+    function toggleSound() {
+      soundEnabled = !soundEnabled;
+      const btnTxt = document.getElementById('txt-sound');
+      const iconSound = document.getElementById('icon-sound');
+      
+      if (soundEnabled) {
+        btnTxt.innerText = "Som: Ativado";
+        iconSound.setAttribute('data-lucide', 'volume-2');
+        iconSound.className = "w-4 h-4 text-emerald-400";
+      } else {
+        btnTxt.innerText = "Som: Desativado";
+        iconSound.setAttribute('data-lucide', 'volume-x');
+        iconSound.className = "w-4 h-4 text-gray-500";
+      }
+      lucide.createIcons();
+    }
+
+    // -------------------------------------------------------------
+    // Notificações Nativas do Navegador
+    // -------------------------------------------------------------
+    function requestNotificationPermission() {
+      if ("Notification" in window) {
+        Notification.requestPermission().then(permission => {
+          if (permission === "granted") {
+            new Notification("Crypto Monitor", {
+              body: "Alertas ativados com sucesso! Você será notificado das variações de preço.",
+              icon: "https://cryptologos.cc/logos/bitcoin-btc-logo.png"
+            });
+          }
+        });
+      }
+    }
+
+    function notifyUser(title, message) {
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(title, { body: message });
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Consumo de Dados em Tempo Real (Binance REST & WebSocket API)
+    // -------------------------------------------------------------
+
+    // 1. Busca estatísticas de 24h iniciais via REST
+    async function fetch24hStats() {
+      try {
+        const [btcRes, ethRes] = await Promise.all([
+          fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=BTCBRL').then(r => r.json()),
+          fetch('https://api.binance.com/api/v3/ticker/24hr?symbol=ETHBRL').then(r => r.json())
+        ]);
+
+        // BTC 24h Stats
+        document.getElementById('btc-high').innerText = `R$ ${parseFloat(btcRes.highPrice).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        document.getElementById('btc-low').innerText = `R$ ${parseFloat(btcRes.lowPrice).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        updateBadge('btc-badge', parseFloat(btcRes.priceChangePercent));
+
+        // ETH 24h Stats
+        document.getElementById('eth-high').innerText = `R$ ${parseFloat(ethRes.highPrice).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        document.getElementById('eth-low').innerText = `R$ ${parseFloat(ethRes.lowPrice).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+        updateBadge('eth-badge', parseFloat(ethRes.priceChangePercent));
+
+      } catch (err) {
+        console.error("Erro ao buscar estatísticas de 24h:", err);
+      }
+    }
+
+    function updateBadge(elementId, percent) {
+      const badge = document.getElementById(elementId);
+      const isPositive = percent >= 0;
+      badge.className = `inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-md ${
+        isPositive ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+      }`;
+      badge.innerHTML = `${isPositive ? '▲ +' : '▼ '}${percent.toFixed(2)}% (24h)`;
+    }
+
+    // 2. Atualização dos Gráficos e Preços
+    function updateCoinData(symbol, price) {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+
+      if (symbol === 'BTC') {
+        const elPrice = document.getElementById('btc-price');
+        const elDiff = document.getElementById('btc-diff');
+        const elTime = document.getElementById('btc-time');
+
+        elPrice.innerText = `R$ ${price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+        elTime.innerText = timeStr;
+
+        if (btcLastPrice !== null) {
+          const diff = price - btcLastPrice;
+          if (diff !== 0) {
+            const isUp = diff > 0;
+            elDiff.innerText = `${isUp ? '+ ' : ''}R$ ${diff.toFixed(2)}`;
+            elDiff.className = `font-medium ${isUp ? 'text-emerald-400' : 'text-rose-400'}`;
+            playBeep(isUp ? 'up' : 'down');
+            
+            if (Math.abs(diff) > 100) { // Notifica se variação for maior que R$100 no BTC
+              notifyUser(`Bitcoin ${isUp ? 'Subiu' : 'Caiu'}!`, `Novo valor: R$ ${price.toFixed(2)}`);
+            }
+          }
+        }
+        btcLastPrice = price;
+
+        // Atualiza Gráfico BTC
+        btcChart.data.labels.push(timeStr);
+        btcChart.data.datasets[0].data.push(price);
+        if (btcChart.data.labels.length > MAX_DATA_POINTS) {
+          btcChart.data.labels.shift();
+          btcChart.data.datasets[0].data.shift();
+        }
+        btcChart.update();
+
+      } else if (symbol === 'ETH') {
+        const elPrice = document.getElementById('eth-price');
+        const elDiff = document.getElementById('eth-diff');
+        const elTime = document.getElementById('eth-time');
+
+        elPrice.innerText = `R$ ${price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+        elTime.innerText = timeStr;
+
+        if (ethLastPrice !== null) {
+          const diff = price - ethLastPrice;
+          if (diff !== 0) {
+            const isUp = diff > 0;
+            elDiff.innerText = `${isUp ? '+ ' : ''}R$ ${diff.toFixed(2)}`;
+            elDiff.className = `font-medium ${isUp ? 'text-emerald-400' : 'text-rose-400'}`;
+            playBeep(isUp ? 'up' : 'down');
+
+            if (Math.abs(diff) > 15) { // Notifica se variação for maior que R$15 no ETH
+              notifyUser(`Ethereum ${isUp ? 'Subiu' : 'Caiu'}!`, `Novo valor: R$ ${price.toFixed(2)}`);
+            }
+          }
+        }
+        ethLastPrice = price;
+
+        // Atualiza Gráfico ETH
+        ethChart.data.labels.push(timeStr);
+        ethChart.data.datasets[0].data.push(price);
+        if (ethChart.data.labels.length > MAX_DATA_POINTS) {
+          ethChart.data.labels.shift();
+          ethChart.data.datasets[0].data.shift();
+        }
+        ethChart.update();
+      }
+
+      // Atualiza Simulador de Frações
+      updateSimulator();
+    }
+
+    // 3. Sistema de Busca por Polling (REST API) como Fallback Rápido e Seguro
+    async function pollPrices() {
+      try {
+        const [respBTC, respETH] = await Promise.all([
+          fetch('https://api.binance.com/api/v3/ticker/price?symbol=BTCBRL').then(r => r.json()),
+          fetch('https://api.binance.com/api/v3/ticker/price?symbol=ETHBRL').then(r => r.json())
+        ]);
+
+        if (respBTC && respBTC.price) updateCoinData('BTC', parseFloat(respBTC.price));
+        if (respETH && respETH.price) updateCoinData('ETH', parseFloat(respETH.price));
+
+      } catch (err) {
+        console.error("Erro na atualização de preços via Polling:", err);
+      }
+    }
+
+    // 4. Simulador Interativo em Tempo Real
+    const simInput = document.getElementById('sim-input');
+    simInput.addEventListener('input', updateSimulator);
+
+    function updateSimulator() {
+      const val = parseFloat(simInput.value) || 0;
+      
+      if (btcLastPrice && btcLastPrice > 0) {
+        const btcFrac = val / btcLastPrice;
+        const satoshis = Math.round(btcFrac * 100000000);
+        document.getElementById('sim-btc-frac').innerText = `${btcFrac.toFixed(8)} BTC`;
+        document.getElementById('sim-btc-sat').innerText = `~ ${satoshis.toLocaleString('pt-BR')} Satoshis`;
+      }
+
+      if (ethLastPrice && ethLastPrice > 0) {
+        const ethFrac = val / ethLastPrice;
+        document.getElementById('sim-eth-frac').innerText = `${ethFrac.toFixed(8)} ETH`;
+        document.getElementById('sim-eth-gwei').innerText = `~ ${(ethFrac * 1000000000).toFixed(2)} Gwei`;
+      }
+    }
+
+    // -------------------------------------------------------------
+    // Ciclo de Inicialização da Aplicação
+    // -------------------------------------------------------------
+    window.onload = () => {
+      // 1. Busca estatísticas gerais de 24h
+      fetch24hStats();
+
+      // 2. Primeira atualização imediata de preços
+      pollPrices();
+
+      // 3. Configura intervalo de atualização em tempo real (a cada 4 segundos)
+      setInterval(pollPrices, 4000);
+
+      // 4. Atualiza estatísticas de 24h a cada 60 segundos
+      setInterval(fetch24hStats, 60000);
+    };
+ 
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js')
+      .then(() => console.log("Service Worker registrado com sucesso!"))
+      .catch((err) => console.log("Erro ao registrar Service Worker:", err));
+  }
+</script>
+</body>
+</html>
